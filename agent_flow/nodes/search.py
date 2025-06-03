@@ -1,6 +1,8 @@
 import os
+import json
 from typing import List, Dict, Any
 from dotenv import load_dotenv
+from google.oauth2 import service_account
 
 from langchain.schema import Document
 from langchain_community.tools.tavily_search import TavilySearchResults
@@ -13,9 +15,22 @@ from agent_flow.state import GraphState
 
 load_dotenv()
 
+# Load service account credentials if available, otherwise fall back to API key
+credentials_json = os.getenv("GOOGLE_APPLICATION_CREDENTIALS_JSON")
 googlemaps_api_key = os.getenv("GOOGLE_MAPS_API_KEY")
 
-gmaps = googlemaps.Client(key=googlemaps_api_key)
+if credentials_json:
+    try:
+        credentials_info = json.loads(credentials_json)
+        credentials = service_account.Credentials.from_service_account_info(credentials_info)
+        gmaps = googlemaps.Client(credentials=credentials)
+        print("Using Google Maps with service account authentication")
+    except Exception as e:
+        print(f"Error setting up service account, falling back to API key: {e}")
+        gmaps = googlemaps.Client(key=googlemaps_api_key)
+else:
+    gmaps = googlemaps.Client(key=googlemaps_api_key)
+    print("Using Google Maps with API key authentication")
 
 
 def web_search(state: GraphState) -> Dict[str, Any]:

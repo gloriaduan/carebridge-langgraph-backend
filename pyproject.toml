@@ -8,6 +8,7 @@ dependencies = [
     "asyncio>=3.4.3",
     "fastapi[standard]>=0.115.12",
     "googlemaps>=4.10.0",
+    "google-auth>=2.31.0",
     "langchain>=0.3.21",
     "langchain-community>=0.3.20",
     "langchain-openai>=0.3.10",
