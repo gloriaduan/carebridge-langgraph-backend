@@ -7,6 +7,7 @@ import spacy
 import googlemaps
 import sqlite3
 from typing import List, Dict, Any, Optional
+from google.oauth2 import service_account
 
 # Load spaCy model globally to avoid repeated loading
 try:
@@ -14,11 +15,28 @@ try:
 except OSError:
     nlp = None  # Will raise error if used without model installed
 
+# Initialize Google Maps client with service account if available
+credentials_json = os.getenv("GOOGLE_APPLICATION_CREDENTIALS_JSON")
 googlemaps_api_key = os.getenv("GOOGLE_MAPS_API_KEY")
-gmaps = googlemaps.Client(key=googlemaps_api_key)
 
-# Initialize SQLite cache
-GEOCODE_DB_PATH = 'geocode_cache.db'
+if credentials_json:
+    try:
+        credentials_info = json.loads(credentials_json)
+        credentials = service_account.Credentials.from_service_account_info(credentials_info)
+        gmaps = googlemaps.Client(credentials=credentials)
+        print("Using Google Maps with service account authentication in helpers.py")
+    except Exception as e:
+        print(f"Error setting up service account in helpers.py, falling back to API key: {e}")
+        gmaps = googlemaps.Client(key=googlemaps_api_key)
+else:
+    gmaps = googlemaps.Client(key=googlemaps_api_key)
+    print("Using Google Maps with API key authentication in helpers.py")
+
+# Initialize SQLite cache in the persistent volume directory
+DATA_DIR = os.environ.get('DATA_DIR', '/app/data')
+# Create the directory if it doesn't exist
+os.makedirs(DATA_DIR, exist_ok=True)
+GEOCODE_DB_PATH = os.path.join(DATA_DIR, 'geocode_cache.db')
 
 def api_search(package_id: str, filters: dict) -> dict:
     # Toronto Open Data is stored in a CKAN instance. It's APIs are documented here:
