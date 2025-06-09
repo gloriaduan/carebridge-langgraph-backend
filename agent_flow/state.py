@@ -1,5 +1,7 @@
-from typing import List, TypedDict
+from typing import List, TypedDict, Annotated
 from langgraph.prebuilt.chat_agent_executor import AgentState
+import operator
+
 
 class GraphState(AgentState):
     """
@@ -16,6 +18,6 @@ class GraphState(AgentState):
     query: str
     context: dict[str, str | list]
     use_search: bool
-    api_results: List[str]
+    api_results: Annotated[List, operator.add]
     search_results: List[str]
     structured_response: dict[str, str | list] | None = None
