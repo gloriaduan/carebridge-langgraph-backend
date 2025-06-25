@@ -16,8 +16,9 @@ class GraphState(AgentState):
     """
 
     query: str
-    context: dict[str, str | list]
+    is_valid_query: str
     use_search: bool
     api_results: Annotated[List, operator.add]
     search_results: List[str]
     structured_response: dict[str, str | list] | None = None
+    error_response: str | None = None

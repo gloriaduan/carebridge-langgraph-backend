@@ -1,4 +1,4 @@
-from typing import Annotated, Any, Dict
+from typing import Any, Dict
 from langgraph.prebuilt import create_react_agent
 from langchain_openai import ChatOpenAI
 from agent_flow.tools.shelter_tools import retrieve_shelters
@@ -27,7 +27,9 @@ def prompt(state: GraphState):
     if api_results:
         results_summary_str = str(api_results)
 
-    formatted_system_msg = system_msg.format(user_query=query, results_summary=results_summary_str)
+    formatted_system_msg = system_msg.format(
+        user_query=query, results_summary=results_summary_str
+    )
 
     return [{"role": "system", "content": formatted_system_msg}] + state["messages"]
 

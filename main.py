@@ -5,13 +5,10 @@ import uvicorn
 from agent_flow.graph import app
 import json
 
-# Create a Socket.IO server instance with CORS enabled
 sio = socketio.AsyncServer(async_mode="asgi", cors_allowed_origins="*")
 
-# Create FastAPI app
 fastapi_app = FastAPI()
 
-# Create the ASGI app by mounting the Socket.IO
 app_asgi = socketio.ASGIApp(sio, fastapi_app)
 
 
@@ -40,18 +37,38 @@ async def stream_data(sid, query):
         first_key = list(curr_chunk.keys())[0]
         await sio.emit("update", {"message": f"finished {first_key}"}, room=sid)
         if first_key == "generate":
+            if "error_response" in curr_chunk[first_key]:
+                error_response = curr_chunk[first_key]["error_response"]
+                print("Error response:", error_response)
+
+                await sio.emit(
+                    "final_res",
+                    {"message": "", "error_msg": error_response},
+                    room=sid,
+                )
+                return
+
             structured_response = curr_chunk[first_key]["structured_response"]
-            # Convert AgentResponse to dict if possible
+
             print("structured_response", structured_response)
+
             if hasattr(structured_response, "dict"):
                 response_dict = structured_response.dict()
             elif hasattr(structured_response, "to_dict"):
                 response_dict = structured_response.to_dict()
             else:
                 response_dict = vars(structured_response)
-            print(response_dict)
+
             await sio.emit(
                 "final_res",
                 {"message": json.dumps(response_dict)},
                 room=sid,
             )
+
+
+if __name__ == "__main__":
+    test_query = "Find me pizza near place"
+    print("Debugging LangGraph pipeline with test query:", test_query)
+    # Synchronous invocation for debugging
+    for chunk in app.stream({"query": test_query}, stream_mode="updates"):
+        print("Chunk:", chunk)

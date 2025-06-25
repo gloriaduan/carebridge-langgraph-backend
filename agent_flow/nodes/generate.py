@@ -8,12 +8,16 @@ from agent_flow.state import GraphState
 
 
 def generate_final_response(state: GraphState) -> Dict[str, Any]:
-    """
-    Generate the final response based on the search results and the structured response.
-    """
     print("GENERATING FINAL RESPONSE...")
 
-    # Use a faster model for structured data processing
+    if state.get("is_valid_query") != "VALID":
+        print("Query is invalid, skipping final response generation.")
+        return {
+            "messages": state.get("messages", []),
+            "structured_response": None,
+            "error_response": "Sorry! Please try again with a different query.",
+        }
+
     model = ChatOpenAI(model="gpt-4o", temperature=0)
 
     parser = PydanticOutputParser(pydantic_object=AgentResponse)

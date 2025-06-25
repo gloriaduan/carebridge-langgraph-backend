@@ -3,6 +3,7 @@ from langgraph.graph import END, StateGraph
 from agent_flow.nodes.search import web_search
 from agent_flow.nodes.api_calls import api_call_agent
 from agent_flow.nodes.generate import generate_final_response
+from agent_flow.nodes.query_validation import query_validation
 from agent_flow.state import GraphState
 import json
 import os
@@ -10,49 +11,25 @@ import os
 load_dotenv()
 
 
-def debug_state(state, location):
-    """Enhanced debugging function"""
-    print(f"\n=== DEBUG {location} ===")
-    print(
-        f"Full state keys: {list(state.keys()) if hasattr(state, 'keys') else 'Not a dict'}"
-    )
-    print(f"State type: {type(state)}")
+def decide_to_proceed(state):
+    is_valid_query = state.get("is_valid_query")
+    print(f"  is_valid_query: {is_valid_query}")
 
-    # Check each key individually
-    for key in [
-        "use_search",
-        "is_high_occupancy",
-        "api_results",
-        "search_results",
-        "query",
-    ]:
-        try:
-            value = state.get(key)
-            print(f"{key}: {value} (type: {type(value)})")
-        except Exception as e:
-            print(f"{key}: ERROR - {e}")
+    should_proceed = True if is_valid_query == "VALID" else False
+    print(f"  should_proceed: {should_proceed}")
 
-    # Check if state is properly structured
-    print(f"State.__dict__: {getattr(state, '__dict__', 'No __dict__')}")
-    print(f"Environment: {'LOCAL' if os.getenv('FLY_APP_NAME') is None else 'FLY.IO'}")
-    print("=" * 50)
+    if should_proceed:
+        print("DECISION: PROCEEDING... (will trigger api_call)")
+        return "api_call"
+    else:
+        print("DECISION: NOT PROCEEDING... (will trigger generate)")
+        return "generate"
 
 
 def decide_to_search(state):
-    debug_state(state, "DECIDE_TO_SEARCH_START")
-
     use_search = state.get("use_search")
     is_high_occupancy = state.get("is_high_occupancy")
-    api_results = state.get("api_results")
 
-    print(f"Decision variables:")
-    print(f"  use_search: {use_search} (bool: {type(use_search)})")
-    print(f"  is_high_occupancy: {is_high_occupancy} (bool: {type(is_high_occupancy)})")
-    print(
-        f"  api_results: {api_results} (length: {len(api_results) if api_results else 0})"
-    )
-
-    # Check the actual logic
     should_search = bool(use_search) or bool(is_high_occupancy)
     print(f"  should_search: {should_search}")
 
@@ -64,35 +41,15 @@ def decide_to_search(state):
         return "generate"
 
 
-# Wrap the original nodes with debugging
-def debug_api_call_agent(state):
-    debug_state(state, "API_CALL_AGENT_START")
-    result = api_call_agent(state)
-    debug_state(result, "API_CALL_AGENT_END")
-    return result
-
-
-def debug_web_search(state):
-    debug_state(state, "WEB_SEARCH_START")
-    result = web_search(state)
-    debug_state(result, "WEB_SEARCH_END")
-    return result
-
-
-def debug_generate_final_response(state):
-    debug_state(state, "GENERATE_FINAL_RESPONSE_START")
-    result = generate_final_response(state)
-    debug_state(result, "GENERATE_FINAL_RESPONSE_END")
-    return result
-
-
 graph = StateGraph(GraphState)
 
-graph.add_node("google_maps_search", debug_web_search)
-graph.add_node("api_call", debug_api_call_agent)
-graph.add_node("generate", debug_generate_final_response)
+graph.add_node("validate_query", query_validation)
+graph.add_node("google_maps_search", web_search)
+graph.add_node("api_call", api_call_agent)
+graph.add_node("generate", generate_final_response)
 
-graph.set_entry_point("api_call")
+graph.set_entry_point("validate_query")
+graph.add_conditional_edges("validate_query", decide_to_proceed)
 graph.add_conditional_edges("api_call", decide_to_search)
 graph.add_edge("google_maps_search", "generate")
 graph.add_edge("generate", END)
