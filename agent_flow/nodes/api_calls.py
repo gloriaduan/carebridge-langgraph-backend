@@ -5,6 +5,7 @@ from agent_flow.tools.shelter_tools import retrieve_shelters
 from agent_flow.tools.family_center_tools import retrieve_children_family_centers
 from agent_flow.models.responses import Evaluator
 from agent_flow.state import GraphState
+from utils.socket_context import SocketIOContext
 
 
 def prompt(state: GraphState):
@@ -34,7 +35,9 @@ def prompt(state: GraphState):
     return [{"role": "system", "content": formatted_system_msg}] + state["messages"]
 
 
-def api_call_agent(state: GraphState) -> Dict[str, Any]:
+async def api_call_agent(state: GraphState) -> Dict[str, Any]:
+    await SocketIOContext.emit("update", {"message": "Searching resources"})
+
     query = state.get("query")
 
     model = ChatOpenAI(model="gpt-4o", temperature=0)

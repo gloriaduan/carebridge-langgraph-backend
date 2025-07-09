@@ -5,9 +5,12 @@ from langchain_core.prompts import PromptTemplate
 from langchain_core.messages import AIMessage
 from agent_flow.models.responses import AgentResponse
 from agent_flow.state import GraphState
+from utils.socket_context import SocketIOContext
 
 
-def generate_final_response(state: GraphState) -> Dict[str, Any]:
+
+async def generate_final_response(state: GraphState) -> Dict[str, Any]:
+    await SocketIOContext.emit("update", {"message": "Generating final response"})
     print("GENERATING FINAL RESPONSE...")
 
     if state.get("is_valid_query") != "VALID":

@@ -15,10 +15,9 @@ from agent_flow.helpers import (
     extract_location_spacy,
     prune_results,
 )
+from utils.socket_context import SocketIOContext
 
 
-# Define essential keys for pruning results within this tool
-# These keys should be sufficient for the Evaluator agent and final response generation
 EVALUATOR_ESSENTIAL_FAMILY_CENTER_KEYS = [
     "program_name",
     "full_address",
@@ -31,13 +30,13 @@ EVALUATOR_ESSENTIAL_FAMILY_CENTER_KEYS = [
 
 
 @tool
-def retrieve_children_family_centers(
+async def retrieve_children_family_centers(
     user_query: str,
     tool_call_id: Annotated[str, InjectedToolCallId],
     state: Annotated[dict, InjectedState],
 ):
     """Use this tool to retrieve children centers or family centers based on user query."""
-
+    await SocketIOContext.emit("update", {"message": "Searching"})
     print("USED CHILDREN AND FAMILY CENTERS TOOL...")
     # user_query = "I'm looking for children and family centers for indegenous people in Toronto."
 
@@ -76,7 +75,7 @@ def retrieve_children_family_centers(
     user_coords = state.get("users_location", {})
     if not user_coords:
         print(f"Could not geocode user location: {user_location_str}")
-        filtered_results_by_proximity = response[:10]  # fallback: just first 10
+        filtered_results_by_proximity = response[:6]  # fallback: just first 10
     else:
         # Geocode each result's address and calculate distance
         results_with_distance = []

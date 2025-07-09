@@ -14,10 +14,9 @@ from agent_flow.helpers import (
     extract_location_spacy,
     prune_results,
 )
+from utils.socket_context import SocketIOContext
 
 
-# Define essential keys for pruning results within this tool
-# These keys should be sufficient for the Evaluator agent and final response generation
 EVALUATOR_ESSENTIAL_SHELTER_KEYS = [
     "LOCATION_NAME",
     "LOCATION_ADDRESS",
@@ -30,10 +29,11 @@ EVALUATOR_ESSENTIAL_SHELTER_KEYS = [
 
 
 @tool
-def retrieve_shelters(
+async def retrieve_shelters(
     user_query: str, tool_call_id: Annotated[str, InjectedToolCallId]
 ) -> Dict[str, Any]:
     """Use this tool to retrieve shelters based on user query."""
+    await SocketIOContext.emit("update", {"message": "Searching"})
 
     print("USED SHELTERS TOOL...")
 
@@ -70,7 +70,7 @@ def retrieve_shelters(
     print("user_coords:", user_coords)
     if not user_coords:
         print(f"Could not geocode user location: {user_location_str}")
-        filtered_results_by_proximity = response[:10]  # fallback: just first 10
+        filtered_results_by_proximity = response[:6]  # fallback: just first 10
     else:
         # Geocode each result's address and calculate distance
         results_with_distance = []

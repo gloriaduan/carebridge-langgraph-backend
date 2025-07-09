@@ -13,6 +13,9 @@ import googlemaps
 
 from agent_flow.state import GraphState
 
+from utils.socket_context import SocketIOContext
+
+
 load_dotenv()
 
 # Initialize Google Maps client with API key
@@ -20,7 +23,8 @@ googlemaps_api_key = os.getenv("GOOGLE_MAPS_API_KEY")
 gmaps = googlemaps.Client(key=googlemaps_api_key)
 print("Using Google Maps with API key authentication")
 
-def web_search(state: GraphState) -> Dict[str, Any]:
+async def web_search(state: GraphState) -> Dict[str, Any]:
+    await SocketIOContext.emit("update", {"message": "Further searching"})
     print("SEARCHING GOOGLE MAPS...")
     # print("API RESUTS FROM STATE:", state["api_results"])
 
@@ -99,4 +103,4 @@ def web_search(state: GraphState) -> Dict[str, Any]:
                 }
             )
 
-    return {"search_results": detailed_results}
+    return {"search_results": detailed_results[:6]}

@@ -2,9 +2,11 @@ from agent_flow.state import GraphState
 from langchain_openai import ChatOpenAI
 from langchain_core.prompts import PromptTemplate
 from langchain_core.messages import AIMessage
+from utils.socket_context import SocketIOContext
 
 
-def query_validation(state: GraphState) -> GraphState:
+async def query_validation(state: GraphState) -> GraphState:
+    await SocketIOContext.emit("update", {"message": "Validating query"})
     query = state.get("query")
 
     model = ChatOpenAI(model="gpt-4o", temperature=0)
@@ -30,5 +32,7 @@ def query_validation(state: GraphState) -> GraphState:
 
     messages = state.get("messages") or []
     messages.append(AIMessage("Finished validating query"))
+
+    await SocketIOContext.emit("update", {"message": "Finished query validation"})
 
     return {"messages": messages, "is_valid_query": output.content}
