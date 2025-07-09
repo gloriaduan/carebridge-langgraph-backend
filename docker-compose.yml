@@ -1,0 +1,13 @@
+services:
+  redis-stack:
+    image: redis/redis-stack:latest
+    
+    ports:
+      - "127.0.0.1:6379:6379"  # Python app to connect to the Redis server.
+      - "127.0.0.1:8001:8001"  # Access the RedisInsight GUI in your browser.
+      
+    volumes:
+      - redis_stack_data:/data
+
+volumes:
+  redis_stack_data:

@@ -6,24 +6,23 @@ import re
 import spacy
 import googlemaps
 import sqlite3
-from typing import List, Dict, Any, Optional
-from google.oauth2 import service_account
+from typing import List, Dict, Any
+from .cache import cache
 
-# Load spaCy model globally to avoid repeated loading
 try:
     nlp = spacy.load("en_core_web_sm")
 except OSError:
-    nlp = None  # Will raise error if used without model installed
+    nlp = None
 
 googlemaps_api_key = os.getenv("GOOGLE_MAPS_API_KEY")
 gmaps = googlemaps.Client(key=googlemaps_api_key)
 print("Using Google Maps with API key authentication in helpers.py")
 
-# Initialize SQLite cache in the persistent volume directory
-DATA_DIR = os.environ.get("DATA_DIR", "/app/data")
-# Create the directory if it doesn't exist
-os.makedirs(DATA_DIR, exist_ok=True)
-GEOCODE_DB_PATH = os.path.join(DATA_DIR, "geocode_cache.db")
+# --- Initialize SQLite cache in the persistent volume directory
+# DATA_DIR = os.environ.get("DATA_DIR", "/app/data")
+# -- Create the directory if it doesn't exist
+# os.makedirs(DATA_DIR, exist_ok=True)
+# GEOCODE_DB_PATH = os.path.join(DATA_DIR, "geocode_cache.db")
 
 
 def api_search(package_id: str, filters: dict) -> dict:
@@ -81,48 +80,36 @@ def api_search(package_id: str, filters: dict) -> dict:
 def geocode_address(address: str) -> dict:
     """Geocode an address using Google Maps Geocoding API via googlemaps client, with SQLite caching."""
     print("GEOCODING ADDRESS:", address)
-    # Open a new connection for this thread
-    conn = sqlite3.connect(GEOCODE_DB_PATH)
-    c = conn.cursor()
-    try:
-        # Ensure table exists (safe to run multiple times)
-        c.execute(
-            """
-            CREATE TABLE IF NOT EXISTS geocode_cache (
-                address TEXT PRIMARY KEY,
-                lat REAL,
-                lng REAL
-            )
-        """
-        )
-        conn.commit()
-        c.execute("SELECT lat, lng FROM geocode_cache WHERE address = ?", (address,))
-        row = c.fetchone()
-        # print("ROW:", row)
-        if row:
-            print("FETCHED FROM CACHE", row)
-            return {"lat": row[0], "lng": row[1]}
-        if not googlemaps_api_key:
-            raise ValueError("GOOGLE_MAPS_API_KEY environment variable not set.")
-        geocode_result = gmaps.geocode(
-            address,
-            region="ca",
-            components={"country": "CA", "administrative_area": "ON"},
-        )
-        # print("GEOCODING RESPONSE:", geocode_result)
-        if geocode_result:
-            location = geocode_result[0]["geometry"]["location"]
-            lat, lng = location["lat"], location["lng"]
-            # Store in cache
-            c.execute(
-                "INSERT OR REPLACE INTO geocode_cache (address, lat, lng) VALUES (?, ?, ?)",
-                (address, lat, lng),
-            )
-            conn.commit()
-            return {"lat": lat, "lng": lng}
-        return None
-    finally:
-        conn.close()
+
+    cache_key = f"geocode:{address.lower().strip()}"
+
+    cached_result = cache.get(cache_key)
+
+    if cached_result:
+        print("Using cached geocode result.")
+        return cached_result
+
+    print("No cached result found, querying Google Maps API...")
+
+    if not googlemaps_api_key:
+        raise ValueError("GOOGLE_MAPS_API_KEY environment variable not set.")
+
+    geocode_result = gmaps.geocode(
+        address,
+        region="ca",
+        components={"country": "CA", "administrative_area": "ON"},
+    )
+
+    if geocode_result:
+        location = geocode_result[0]["geometry"]["location"]
+        lat, lng = location["lat"], location["lng"]
+
+        result = {"lat": lat, "lng": lng}
+
+        cache.set(cache_key, result, expire=86400)
+
+        return result
+    return None
 
 
 def haversine_distance(lat1, lon1, lat2, lon2):

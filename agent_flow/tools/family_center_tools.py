@@ -7,6 +7,7 @@ from agent_flow.models.filters import ChildrenFamilyCenterFilter
 from langchain_core.tools.base import InjectedToolCallId
 from langchain_core.messages import ToolMessage
 from langgraph.types import Command
+from langgraph.prebuilt import InjectedState
 from agent_flow.helpers import (
     api_search,
     geocode_address,
@@ -31,7 +32,9 @@ EVALUATOR_ESSENTIAL_FAMILY_CENTER_KEYS = [
 
 @tool
 def retrieve_children_family_centers(
-    user_query: str, tool_call_id: Annotated[str, InjectedToolCallId]
+    user_query: str,
+    tool_call_id: Annotated[str, InjectedToolCallId],
+    state: Annotated[dict, InjectedState],
 ):
     """Use this tool to retrieve children centers or family centers based on user query."""
 
@@ -66,8 +69,11 @@ def retrieve_children_family_centers(
     response = api_search("earlyon-child-and-family-centres", output)
 
     # --- Proximity filtering ---
+    print("STATE:", state)
     user_location_str = extract_location_spacy(user_query)
-    user_coords = geocode_address(user_location_str)
+
+    # user_coords = geocode_address(user_location_str)
+    user_coords = state.get("users_location", {})
     if not user_coords:
         print(f"Could not geocode user location: {user_location_str}")
         filtered_results_by_proximity = response[:10]  # fallback: just first 10

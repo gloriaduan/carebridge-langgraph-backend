@@ -16,6 +16,7 @@ class GraphState(AgentState):
     """
 
     query: str
+    users_location: dict[str, float]
     is_valid_query: str
     use_search: bool
     api_results: Annotated[List, operator.add]

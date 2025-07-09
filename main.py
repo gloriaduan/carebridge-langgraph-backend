@@ -26,13 +26,16 @@ async def disconnect(sid):
 async def on_submit_query(sid, data):
     print("Received query:", sid, data)
     query = data.get("query")
+    users_location = data.get("location")
 
-    asyncio.create_task(stream_data(sid, query))
+    asyncio.create_task(stream_data(sid, query, users_location))
 
 
-async def stream_data(sid, query):
+async def stream_data(sid, query, location):
     print("stream_data called")
-    for chunk in app.stream({"query": query}, stream_mode="updates"):
+    for chunk in app.stream(
+        {"query": query, "users_location": location}, stream_mode="updates"
+    ):
         curr_chunk = chunk
         first_key = list(curr_chunk.keys())[0]
         await sio.emit("update", {"message": f"finished {first_key}"}, room=sid)

@@ -10,38 +10,23 @@ def query_validation(state: GraphState) -> GraphState:
     model = ChatOpenAI(model="gpt-4o", temperature=0)
 
     prompt = PromptTemplate(
-        template="""You are a classifier that checks if a user query is about community support services.
+        template="""Classify if this query is about community/social support services.
 
-            Valid topics include:
-            - Shelters
-            - Food banks
-            - Community centers
-            - Free clinics
-            - Mental health support
-            - Public housing
-            - Crisis or social services
+            VALID: Shelters, food banks, health clinics, mental health, housing, child care, senior services, crisis help, legal aid, job training, disability services, support for specific groups (indigenous, immigrants, veterans, etc.)
 
-            Examples of VALID queries:
-            - “Find a food bank near me”
-            - “Where is the nearest shelter?”
-            - “I need free mental health support”
+            INVALID: Restaurants, retail, entertainment, hotels, commercial businesses
 
-            Examples of INVALID queries:
-            - “Best pizza nearby”
-            - “Starbucks hours”
-            - “Hotels in Toronto”
+            Query: "{query}"
 
-            Classify this query:
-
-            "{query}"
-
-            Respond only with: VALID or INVALID""",
+            Answer: VALID or INVALID""",
         input_variables=["query"],
     )
 
     llm_with_prompt = prompt | model
 
     output = llm_with_prompt.invoke({"query": query})
+
+    print(f"Validation output: {output.content}")
 
     messages = state.get("messages") or []
     messages.append(AIMessage("Finished validating query"))

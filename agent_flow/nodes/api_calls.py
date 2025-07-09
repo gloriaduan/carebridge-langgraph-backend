@@ -49,7 +49,12 @@ def api_call_agent(state: GraphState) -> Dict[str, Any]:
         prompt=prompt,
     )
 
-    response = graph.invoke({"messages": [{"role": "user", "content": query}]})
+    response = graph.invoke(
+        {
+            "messages": [{"role": "user", "content": query}],
+            "users_location": state.get("users_location", {}),
+        }
+    )
     should_google = response["structured_response"].should_google
     is_high_occupancy = response["structured_response"].is_high_occupancy
     api_results = response.get("api_results")
