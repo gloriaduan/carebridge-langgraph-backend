@@ -29,11 +29,11 @@ EVALUATOR_ESSENTIAL_SHELTER_KEYS = [
 
 
 @tool
-async def retrieve_shelters(
+def retrieve_shelters(
     user_query: str, tool_call_id: Annotated[str, InjectedToolCallId]
 ) -> Dict[str, Any]:
     """Use this tool to retrieve shelters based on user query."""
-    await SocketIOContext.emit("update", {"message": "Searching"})
+    # await SocketIOContext.emit("update", {"message": "Searching"})
 
     print("USED SHELTERS TOOL...")
 

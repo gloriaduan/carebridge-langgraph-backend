@@ -30,13 +30,13 @@ EVALUATOR_ESSENTIAL_FAMILY_CENTER_KEYS = [
 
 
 @tool
-async def retrieve_children_family_centers(
+def retrieve_children_family_centers(
     user_query: str,
     tool_call_id: Annotated[str, InjectedToolCallId],
     state: Annotated[dict, InjectedState],
 ):
     """Use this tool to retrieve children centers or family centers based on user query."""
-    await SocketIOContext.emit("update", {"message": "Searching"})
+    # await SocketIOContext.emit("update", {"message": "Searching"})
     print("USED CHILDREN AND FAMILY CENTERS TOOL...")
     # user_query = "I'm looking for children and family centers for indegenous people in Toronto."
 

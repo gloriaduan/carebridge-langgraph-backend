@@ -9,8 +9,5 @@ RUN pip install --no-cache-dir .
 # Copy application code
 COPY . .
 
-# Expose the port the app runs on
-EXPOSE 8000
-
 # Command to run the application
-CMD uvicorn main:app_asgi --host 0.0.0.0 --port ${PORT:-8080}
+CMD uvicorn main:app_asgi --host 0.0.0.0 --port $PORT

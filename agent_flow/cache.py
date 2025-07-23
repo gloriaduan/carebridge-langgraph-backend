@@ -27,8 +27,8 @@ class RedisCache:
             # Add production-only arguments
             if not is_local:
                 connection_kwargs["password"] = password
-                connection_kwargs["ssl"] = True
-                connection_kwargs["ssl_cert_reqs"] = None
+                # connection_kwargs["ssl"] = True
+                # connection_kwargs["ssl_cert_reqs"] = None
 
             try:
                 print(
