@@ -1,11 +1,7 @@
 import os
 import json
-from typing import List, Dict, Any
+from typing import Dict, Any
 from dotenv import load_dotenv
-from google.oauth2 import service_account
-
-from langchain.schema import Document
-from langchain_community.tools.tavily_search import TavilySearchResults
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
 
@@ -23,18 +19,23 @@ googlemaps_api_key = os.getenv("GOOGLE_MAPS_API_KEY")
 gmaps = googlemaps.Client(key=googlemaps_api_key)
 print("Using Google Maps with API key authentication")
 
+
 async def web_search(state: GraphState) -> Dict[str, Any]:
     await SocketIOContext.emit("update", {"message": "Further searching"})
     print("SEARCHING GOOGLE MAPS...")
-    # print("API RESUTS FROM STATE:", state["api_results"])
 
     query = state["query"]
+
+    if state.get("users_location") != {}:
+        query += (
+            f" near {state['users_location']['lat']}, {state['users_location']['lng']}"
+        )
 
     generate_location_prompt = ChatPromptTemplate(
         [
             (
                 "system",
-                """Your task is to generate a concise google maps search query from the user's query below.""",
+                """Your task is to generate a concise google maps search query from the user's query below. If the user query has a vague location description, keep the geo coordinates. If the user query has a specific location, do not include the geo coordinates in the search query.""",
             ),
             ("user", "{query}"),
         ]
@@ -47,6 +48,8 @@ async def web_search(state: GraphState) -> Dict[str, Any]:
     result = generate_query_chain.invoke({"query": query})
 
     final_search_query = result.content
+
+    print("FINAL SEARCH QUERY:", final_search_query)
 
     # GTA center point for location bias (Downtown Toronto)
     gta_center = {"lat": 43.6532, "lng": -79.3832}

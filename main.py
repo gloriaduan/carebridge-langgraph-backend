@@ -33,19 +33,19 @@ async def on_submit_query(sid, data):
 
 async def stream_data(sid, query, location):
     print("stream_data called")
+    print(query, location)
 
     SocketIOContext.set_context(sio, sid)
 
     try:
         async for chunk in app.astream(
-            {"query": query, "users_location": location}, 
-            stream_mode="updates"
+            {"query": query, "users_location": location}, stream_mode="updates"
         ):
             curr_chunk = chunk
             first_key = list(curr_chunk.keys())[0]
-            
+
             # await sio.emit("update", {"message": f"finished {first_key}"}, room=sid)
-            
+
             if first_key == "generate":
                 if "error_response" in curr_chunk[first_key]:
                     error_response = curr_chunk[first_key]["error_response"]
@@ -74,7 +74,7 @@ async def stream_data(sid, query, location):
                     {"message": json.dumps(response_dict)},
                     room=sid,
                 )
-                
+
     except Exception as e:
         await SocketIOContext.emit("error", {"message": str(e)})
         print(f"Error in stream_data: {e}")
@@ -85,10 +85,14 @@ async def stream_data(sid, query, location):
         )
 
 
+async def debug_graph():
+    test_query = "Find me child care centers in the area"
+    print("Debugging LangGraph pipeline with test query:", test_query)
+
+    # Async invocation - gets final result without streaming
+    result = await app.ainvoke({"query": test_query})
+    print("Final result:", result)
+
 
 if __name__ == "__main__":
-    test_query = "Find me pizza near place"
-    print("Debugging LangGraph pipeline with test query:", test_query)
-    # Synchronous invocation for debugging
-    for chunk in app.stream({"query": test_query}, stream_mode="updates"):
-        print("Chunk:", chunk)
+    asyncio.run(debug_graph())

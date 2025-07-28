@@ -18,12 +18,6 @@ googlemaps_api_key = os.getenv("GOOGLE_MAPS_API_KEY")
 gmaps = googlemaps.Client(key=googlemaps_api_key)
 print("Using Google Maps with API key authentication in helpers.py")
 
-# --- Initialize SQLite cache in the persistent volume directory
-# DATA_DIR = os.environ.get("DATA_DIR", "/app/data")
-# -- Create the directory if it doesn't exist
-# os.makedirs(DATA_DIR, exist_ok=True)
-# GEOCODE_DB_PATH = os.path.join(DATA_DIR, "geocode_cache.db")
-
 
 def api_search(package_id: str, filters: dict) -> dict:
     # Toronto Open Data is stored in a CKAN instance. It's APIs are documented here:
@@ -73,7 +67,6 @@ def api_search(package_id: str, filters: dict) -> dict:
             print("FINISHED GETTING DATA FROM API...")
             results = resource_search_data["records"]
 
-    # print("RESULTS: ", results)
     return results
 
 
@@ -160,13 +153,6 @@ def prune_results(
 ) -> List[Dict[str, Any]]:
     """
     Prune API results to only include essential keys.
-
-    Args:
-        results: List of dictionary results from API calls
-        essential_keys: List of keys to keep in each result
-
-    Returns:
-        List of dictionaries with only the essential keys
     """
     pruned_list = []
     if not results:
@@ -187,3 +173,42 @@ def prune_results(
             pruned_list.append(pruned_item)
 
     return pruned_list
+
+
+def filter_results_by_proximity(
+    results: List[Dict[str, Any]],
+    user_coords: Dict[str, float],
+    address_field: str,
+    essential_keys: List[str],
+    limit: int = 6,
+) -> List[Dict[str, Any]]:
+    """
+    Filter API results by proximity to user location.
+    """
+    if not user_coords:
+        print(f"Could not geocode user location: {user_coords}")
+        filtered_results = results[:limit]
+    else:
+        # Geocode each result's address and calculate distance
+        results_with_distance = []
+        for result in results:
+            address = result.get(address_field, "")
+            coords = geocode_address(address) if address else None
+            if coords:
+                dist = haversine_distance(
+                    user_coords["lat"], user_coords["lng"], coords["lat"], coords["lng"]
+                )
+                print(f"Distance to {address}: {dist:.2f} km")
+                results_with_distance.append((dist, result))
+            else:
+                # If can't geocode, put at end with high distance
+                results_with_distance.append((float("inf"), result))
+
+        # Sort by distance and take top 'limit' results
+        results_with_distance.sort(key=lambda x: x[0])
+        filtered_results = [result for _, result in results_with_distance[:limit]]
+
+    # Prune the filtered results to include only essential keys
+    final_pruned_results = prune_results(filtered_results, essential_keys)
+
+    return final_pruned_results

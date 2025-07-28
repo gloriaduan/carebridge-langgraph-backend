@@ -10,10 +10,7 @@ from langgraph.types import Command
 from langgraph.prebuilt import InjectedState
 from agent_flow.helpers import (
     api_search,
-    geocode_address,
-    haversine_distance,
-    extract_location_spacy,
-    prune_results,
+    filter_results_by_proximity,
 )
 from utils.socket_context import SocketIOContext
 
@@ -26,6 +23,35 @@ EVALUATOR_ESSENTIAL_FAMILY_CENTER_KEYS = [
     "email",
     "phone",
     "contact_email",
+]
+
+SUPPORTED_LANGUAGES = [
+    "Akan (Twi)",
+    "Arabic",
+    "Bengali",
+    "Cantonese",
+    "Chinese - Other",
+    "Dari",
+    "Edo",
+    "French",
+    "German",
+    "Gujarati",
+    "Hindi",
+    "Italian",
+    "Japanese",
+    "Korean",
+    "Mandarin",
+    "Panjabi (Punjabi)",
+    "Pashto",
+    "Persian (Farsi)",
+    "Portuguese",
+    "Russian",
+    "Somali",
+    "Spanish",
+    "Tagalog (Pilipino, Filipino)",
+    "Tamil",
+    "Urdu",
+    "Vietnamese",
 ]
 
 
@@ -67,47 +93,18 @@ def retrieve_children_family_centers(
 
     response = api_search("earlyon-child-and-family-centres", output)
 
-    # --- Proximity filtering ---
-    print("STATE:", state)
-    user_location_str = extract_location_spacy(user_query)
-
-    # user_coords = geocode_address(user_location_str)
     user_coords = state.get("users_location", {})
-    if not user_coords:
-        print(f"Could not geocode user location: {user_location_str}")
-        filtered_results_by_proximity = response[:6]  # fallback: just first 10
-    else:
-        # Geocode each result's address and calculate distance
-        results_with_distance = []
-        for r in response:
-            address = r.get(
-                "full_address", ""
-            )  # <-- update this if your address field is different
-            coords = geocode_address(address) if address else None
-            if coords:
-                dist = haversine_distance(
-                    user_coords["lat"], user_coords["lng"], coords["lat"], coords["lng"]
-                )
-                print("distance:", dist)
-                results_with_distance.append((dist, r))
-            else:
-                # If can't geocode, put at end with high distance
-                results_with_distance.append((float("inf"), r))
-        # Sort by distance and take top 10
-        results_with_distance.sort(key=lambda x: x[0])
-        filtered_results_by_proximity = [r for _, r in results_with_distance[:6]]
-
-    # print("Filtered API response (top 10 by proximity):", filtered_results)
-
-    # Prune the filtered results to include only essential keys
-    final_pruned_results = prune_results(
-        filtered_results_by_proximity, EVALUATOR_ESSENTIAL_FAMILY_CENTER_KEYS
+    final_results = filter_results_by_proximity(
+        results=response,
+        user_coords=user_coords,
+        address_field="full_address",
+        essential_keys=EVALUATOR_ESSENTIAL_FAMILY_CENTER_KEYS,
+        limit=5,
     )
-    # print("Pruned family center results for Evaluator:", final_pruned_results)
 
     return Command(
         update={
-            "api_results": final_pruned_results,
+            "api_results": final_results,
             "messages": [
                 ToolMessage(
                     "Successfully looked up children and family centers",
