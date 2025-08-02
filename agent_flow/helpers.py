@@ -19,6 +19,59 @@ gmaps = googlemaps.Client(key=googlemaps_api_key)
 print("Using Google Maps with API key authentication in helpers.py")
 
 
+# def api_search(package_id: str, filters: dict) -> dict:
+#     # Toronto Open Data is stored in a CKAN instance. It's APIs are documented here:
+#     # https://docs.ckan.org/en/latest/api/
+
+#     print("GETTING DATA FROM API...")
+
+#     # Only include non-empty filter keys
+#     if hasattr(filters, "dict"):
+#         filters_dict = filters.dict()
+#     else:
+#         filters_dict = dict(filters)
+#     filters_clean = {
+#         key: value
+#         for key, value in filters_dict.items()
+#         if value != "" and value is not None
+#     }
+
+#     # To hit our API, you'll be making requests to:
+#     base_url = "https://ckan0.cf.opendata.inter.prod-toronto.ca"
+
+#     # Datasets are called "packages". Each package can contain many "resources"
+#     # To retrieve the metadata for this package and its resources, use the package name in this page's URL:
+#     url = base_url + "/api/3/action/package_show"
+#     params = {"id": package_id}
+#     package = requests.get(url, params=params).json()
+
+#     # print(len(package["result"]["resources"]))
+
+#     results = []
+
+#     if package["result"]["resources"]:
+#         resource = package["result"]["resources"][0]
+#         # To selectively pull records and attribute-level metadata:
+#         if resource["datastore_active"]:
+#             url = base_url + "/api/3/action/datastore_search"
+#             if len(filters_clean) > 0:
+#                 p = {
+#                     "id": resource["id"],
+#                     "limit": 50,
+#                     "filters": json.dumps(filters_clean),
+#                 }
+#                 print(p)
+#             else:
+#                 p = {"id": resource["id"], "limit": 50}
+#             resource_response = requests.get(url, params=p).json()
+#             print("Resource response:", resource_response)
+#             resource_search_data = resource_response["result"]
+#             print("FINISHED GETTING DATA FROM API...")
+#             results = resource_search_data["records"]
+
+#     return results
+
+
 def api_search(package_id: str, filters: dict) -> dict:
     # Toronto Open Data is stored in a CKAN instance. It's APIs are documented here:
     # https://docs.ckan.org/en/latest/api/
@@ -36,6 +89,8 @@ def api_search(package_id: str, filters: dict) -> dict:
         if value != "" and value is not None
     }
 
+    print(f"Clean filters: {filters_clean}")
+
     # To hit our API, you'll be making requests to:
     base_url = "https://ckan0.cf.opendata.inter.prod-toronto.ca"
 
@@ -45,28 +100,193 @@ def api_search(package_id: str, filters: dict) -> dict:
     params = {"id": package_id}
     package = requests.get(url, params=params).json()
 
-    # print(len(package["result"]["resources"]))
-
     results = []
 
     if package["result"]["resources"]:
         resource = package["result"]["resources"][0]
-        # To selectively pull records and attribute-level metadata:
-        if resource["datastore_active"]:
-            url = base_url + "/api/3/action/datastore_search"
-            if len(filters_clean) > 0:
-                p = {
-                    "id": resource["id"],
-                    "limit": 50,
-                    "filters": json.dumps(filters_clean),
-                }
-            else:
-                p = {"id": resource["id"], "limit": 50}
-            resource_response = requests.get(url, params=p).json()
-            resource_search_data = resource_response["result"]
-            print("FINISHED GETTING DATA FROM API...")
-            results = resource_search_data["records"]
+        resource_id = resource["id"]
 
+        # Check if we have language filtering - this needs special handling
+        languages_filter = filters_clean.get("languages", "")
+
+        if resource["datastore_active"]:
+            # If we have language filtering, use full-text search approach
+            if languages_filter:
+                print(
+                    f"Using full-text search for language filtering: {languages_filter}"
+                )
+
+                # Parse semicolon-separated languages
+                languages_list = [
+                    lang.strip() for lang in languages_filter.split(";") if lang.strip()
+                ]
+
+                # Method 1: Try full-text search with q parameter
+                print("Attempting full-text search method...")
+                url = base_url + "/api/3/action/datastore_search"
+
+                # Create search query for languages
+                search_query = " OR ".join(languages_list)  # "Mandarin OR Arabic"
+
+                params = {
+                    "id": resource_id,
+                    "q": search_query,
+                    "limit": 200,  # Get more results to filter
+                }
+
+                # Add other exact filters
+                other_filters = {
+                    k: v for k, v in filters_clean.items() if k != "languages"
+                }
+                if other_filters:
+                    params["filters"] = json.dumps(other_filters)
+
+                print(f"Full-text search params: {params}")
+
+                try:
+                    resource_response = requests.get(url, params=params)
+                    print(f"Full-text response status: {resource_response.status_code}")
+
+                    if resource_response.status_code == 200:
+                        response_json = resource_response.json()
+
+                        if response_json.get("success"):
+                            all_results = response_json["result"].get("records", [])
+                            print(
+                                f"Full-text search returned {len(all_results)} total results"
+                            )
+
+                            # Post-filter to ensure language matches are in the languages field
+                            # (since full-text search might match other fields)
+                            filtered_results = []
+                            for result in all_results:
+                                record_languages = result.get("languages", "")
+                                # Check if any of our target languages appear in the languages field
+                                if any(
+                                    lang.lower() in record_languages.lower()
+                                    for lang in languages_list
+                                ):
+                                    filtered_results.append(result)
+
+                            results = filtered_results[:50]  # Limit final results
+                            print(
+                                f"After language field filtering: {len(results)} results"
+                            )
+
+                            # Debug: show languages in first few results
+                            for i, result in enumerate(results[:3]):
+                                prog_name = result.get("program_name", "No name")
+                                lang_field = result.get("languages", "No languages")
+                                print(
+                                    f"Filtered Result {i+1}: {prog_name} - Languages: {lang_field}"
+                                )
+                        else:
+                            print(
+                                f"Full-text search API returned success=false: {response_json}"
+                            )
+                            results = []
+                    else:
+                        print(
+                            f"Full-text search HTTP error: {resource_response.status_code}"
+                        )
+                        print(f"Response content: {resource_response.text[:200]}")
+                        results = []
+
+                except Exception as e:
+                    print(f"Error in full-text search: {e}")
+                    results = []
+
+                # If full-text search didn't work or returned no results, try getting all records and filtering in Python
+                if not results:
+                    print(
+                        "Full-text search failed or returned no results. Trying get-all-and-filter approach..."
+                    )
+                    url = base_url + "/api/3/action/datastore_search"
+
+                    # Get all records (or a large subset)
+                    params = {
+                        "id": resource_id,
+                        "limit": 1000,  # Get a large number of records
+                    }
+
+                    # Add other exact filters
+                    if other_filters:
+                        params["filters"] = json.dumps(other_filters)
+
+                    try:
+                        resource_response = requests.get(url, params=params)
+                        if resource_response.status_code == 200:
+                            response_json = resource_response.json()
+                            if response_json.get("success"):
+                                all_results = response_json["result"].get("records", [])
+                                print(
+                                    f"Get-all approach returned {len(all_results)} total results"
+                                )
+
+                                # Filter in Python for language matches
+                                filtered_results = []
+                                for result in all_results:
+                                    record_languages = result.get("languages", "")
+                                    if any(
+                                        lang.lower() in record_languages.lower()
+                                        for lang in languages_list
+                                    ):
+                                        filtered_results.append(result)
+
+                                results = filtered_results[:50]  # Limit final results
+                                print(
+                                    f"Python filtering found {len(results)} matching results"
+                                )
+
+                                # Debug: show languages in first few results
+                                for i, result in enumerate(results[:3]):
+                                    prog_name = result.get("program_name", "No name")
+                                    lang_field = result.get("languages", "No languages")
+                                    print(
+                                        f"Python Filtered Result {i+1}: {prog_name} - Languages: {lang_field}"
+                                    )
+                            else:
+                                print(
+                                    f"Get-all API returned success=false: {response_json}"
+                                )
+                                results = []
+                        else:
+                            print(
+                                f"Get-all HTTP error: {resource_response.status_code}"
+                            )
+                            results = []
+                    except Exception as e:
+                        print(f"Error in get-all approach: {e}")
+                        results = []
+
+            else:
+                # No language filtering, use regular datastore_search
+                print("Using regular datastore_search (no language filtering)")
+                url = base_url + "/api/3/action/datastore_search"
+
+                if len(filters_clean) > 0:
+                    p = {
+                        "id": resource_id,
+                        "limit": 50,
+                        "filters": json.dumps(filters_clean),
+                    }
+                    print(f"Regular search params: {p}")
+                else:
+                    p = {"id": resource_id, "limit": 50}
+
+                resource_response = requests.get(url, params=p).json()
+                print("Regular resource response received")
+
+                if resource_response.get("success"):
+                    resource_search_data = resource_response["result"]
+                    results = resource_search_data.get("records", [])
+                    print(f"Regular search returned {len(results)} results")
+                else:
+                    print(f"Regular search failed: {resource_response}")
+                    results = []
+
+    print("FINISHED GETTING DATA FROM API...")
+    print(f"Total results found: {len(results)}")
     return results
 
 

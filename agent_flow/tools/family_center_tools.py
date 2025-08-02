@@ -23,6 +23,9 @@ EVALUATOR_ESSENTIAL_FAMILY_CENTER_KEYS = [
     "email",
     "phone",
     "contact_email",
+    "languages",
+    "french_language_program",
+    "indigenous_program",
 ]
 
 SUPPORTED_LANGUAGES = [
@@ -73,14 +76,30 @@ def retrieve_children_family_centers(
     prompt = PromptTemplate(
         template="""From the following user query, please extract the relevant information and return it in a json object that contains the following keys: 'french_language_program', 'indigenous_program', 'languages'. 
                     
-        Based on the user query, pick the most relevant value for each key from the following list: 
-        french_language_program: ["Yes", ""]
-        indigenous_program: ["Yes", ""]
-        languages: Empty if the language is English or not stated. Otherwise, please provide a semi-colon seperated list of languages if the user query states that the center speaks other languages.
+        Based on the user query, pick the most relevant value for each key from the following options: 
+        
+        french_language_program: ["Yes", ""] (Use "Yes" only if the user specifically mentions French language programs)
+        indigenous_program: ["Yes", ""] (Use "Yes" only if the user specifically mentions Indigenous programs)
+        
+        languages: This should be empty if the language is English or not specifically stated. If the user mentions specific languages other than English, provide them as a semicolon-separated list. Only use languages from this supported list:
+        {supported_languages}
+        
+        Important notes:
+        - Match user language requests to the exact language names from the supported list above
+        - For Chinese languages, distinguish between "Cantonese", "Mandarin", and "Chinese - Other"
+        - Use exact spelling and formatting as shown in the supported languages list
+        - If a user mentions a language variant, map it to the closest supported language (e.g., "Punjabi" → "Panjabi (Punjabi)")
+        - Multiple languages should be separated by semicolons (e.g., "Arabic; Urdu; Hindi")
+        
         User query: {query}
+        
+        {format_instructions}
         """,
         input_variables=["query"],
-        partial_variables={"format_instructions": parser.get_format_instructions()},
+        partial_variables={
+            "format_instructions": parser.get_format_instructions(),
+            "supported_languages": "; ".join(SUPPORTED_LANGUAGES),
+        },
     )
 
     llm_with_parser = prompt | model | parser

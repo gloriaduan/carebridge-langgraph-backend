@@ -4,6 +4,7 @@ from agent_flow.nodes.search import web_search
 from agent_flow.nodes.api_calls import api_call_agent
 from agent_flow.nodes.generate import generate_final_response
 from agent_flow.nodes.query_validation import query_validation
+from agent_flow.nodes.evaluate import evaluate_api_results
 from agent_flow.state import GraphState
 import json
 import os
@@ -28,12 +29,10 @@ def decide_to_proceed(state):
 
 def decide_to_search(state):
     use_search = state.get("use_search")
-    is_high_occupancy = state.get("is_high_occupancy")
 
-    should_search = bool(use_search) or bool(is_high_occupancy)
-    print(f"  should_search: {should_search}")
+    print(f"  use_search flag is set to: {use_search}")
 
-    if should_search:
+    if use_search:
         print("DECISION: SEARCHING... (will trigger google_maps_search)")
         return "google_maps_search"
     else:
@@ -44,13 +43,18 @@ def decide_to_search(state):
 graph = StateGraph(GraphState)
 
 graph.add_node("validate_query", query_validation)
-graph.add_node("google_maps_search", web_search)
 graph.add_node("api_call", api_call_agent)
+graph.add_node("evaluate_results", evaluate_api_results)
+graph.add_node("google_maps_search", web_search)
 graph.add_node("generate", generate_final_response)
 
 graph.set_entry_point("validate_query")
 graph.add_conditional_edges("validate_query", decide_to_proceed)
-graph.add_conditional_edges("api_call", decide_to_search)
+
+
+graph.add_edge("api_call", "evaluate_results")
+graph.add_conditional_edges("evaluate_results", decide_to_search)
+
 graph.add_edge("google_maps_search", "generate")
 graph.add_edge("generate", END)
 
