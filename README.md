@@ -1,5 +1,7 @@
 # CareConnect - A Toronto Community Resources Agent
 
+📦 View Frontend Repo: [frontend](https://github.com/gloriaduan/carebridge-langgraph-frontend)
+
 A LangGraph-powered intelligent agent that helps users find community and social support services in the Greater Toronto Area. The system uses Toronto's Open Data API and Google Maps to provide real-time information about shelters, family centers, and other essential services.
 
 ## 🌟 Features
