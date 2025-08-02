@@ -19,59 +19,6 @@ gmaps = googlemaps.Client(key=googlemaps_api_key)
 print("Using Google Maps with API key authentication in helpers.py")
 
 
-# def api_search(package_id: str, filters: dict) -> dict:
-#     # Toronto Open Data is stored in a CKAN instance. It's APIs are documented here:
-#     # https://docs.ckan.org/en/latest/api/
-
-#     print("GETTING DATA FROM API...")
-
-#     # Only include non-empty filter keys
-#     if hasattr(filters, "dict"):
-#         filters_dict = filters.dict()
-#     else:
-#         filters_dict = dict(filters)
-#     filters_clean = {
-#         key: value
-#         for key, value in filters_dict.items()
-#         if value != "" and value is not None
-#     }
-
-#     # To hit our API, you'll be making requests to:
-#     base_url = "https://ckan0.cf.opendata.inter.prod-toronto.ca"
-
-#     # Datasets are called "packages". Each package can contain many "resources"
-#     # To retrieve the metadata for this package and its resources, use the package name in this page's URL:
-#     url = base_url + "/api/3/action/package_show"
-#     params = {"id": package_id}
-#     package = requests.get(url, params=params).json()
-
-#     # print(len(package["result"]["resources"]))
-
-#     results = []
-
-#     if package["result"]["resources"]:
-#         resource = package["result"]["resources"][0]
-#         # To selectively pull records and attribute-level metadata:
-#         if resource["datastore_active"]:
-#             url = base_url + "/api/3/action/datastore_search"
-#             if len(filters_clean) > 0:
-#                 p = {
-#                     "id": resource["id"],
-#                     "limit": 50,
-#                     "filters": json.dumps(filters_clean),
-#                 }
-#                 print(p)
-#             else:
-#                 p = {"id": resource["id"], "limit": 50}
-#             resource_response = requests.get(url, params=p).json()
-#             print("Resource response:", resource_response)
-#             resource_search_data = resource_response["result"]
-#             print("FINISHED GETTING DATA FROM API...")
-#             results = resource_search_data["records"]
-
-#     return results
-
-
 def api_search(package_id: str, filters: dict) -> dict:
     # Toronto Open Data is stored in a CKAN instance. It's APIs are documented here:
     # https://docs.ckan.org/en/latest/api/
@@ -291,7 +238,7 @@ def api_search(package_id: str, filters: dict) -> dict:
 
 
 def geocode_address(address: str) -> dict:
-    """Geocode an address using Google Maps Geocoding API via googlemaps client, with SQLite caching."""
+    """Geocode an address using Google Maps Geocoding API via googlemaps client, with Redis caching."""
     print("GEOCODING ADDRESS:", address)
 
     cache_key = f"geocode:{address.lower().strip()}"
@@ -354,18 +301,18 @@ def extract_location_from_query(query: str) -> str:
     return query.strip()
 
 
-def extract_location_spacy(query: str) -> str:
-    """Extract location using spaCy NER (GPE/LOC). Fallback to whole query if not found."""
-    global nlp
-    if nlp is None:
-        raise RuntimeError(
-            "spaCy model 'en_core_web_sm' is not installed. Run: python -m spacy download en_core_web_sm"
-        )
-    doc = nlp(query)
-    for ent in doc.ents:
-        if ent.label_ in ("GPE", "LOC"):
-            return ent.text
-    return query.strip()
+# def extract_location_spacy(query: str) -> str:
+#     """Extract location using spaCy NER (GPE/LOC). Fallback to whole query if not found."""
+#     global nlp
+#     if nlp is None:
+#         raise RuntimeError(
+#             "spaCy model 'en_core_web_sm' is not installed. Run: python -m spacy download en_core_web_sm"
+#         )
+#     doc = nlp(query)
+#     for ent in doc.ents:
+#         if ent.label_ in ("GPE", "LOC"):
+#             return ent.text
+#     return query.strip()
 
 
 def prune_results(

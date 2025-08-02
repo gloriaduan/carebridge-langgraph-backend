@@ -31,8 +31,6 @@ async def api_call_agent(state: GraphState) -> Dict[str, Any]:
 
     api_results = response.get("api_results")
 
-    # print(f"API results: {api_results}")
-
     return {
         "messages": response["messages"],
         "api_results": api_results,
